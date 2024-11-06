@@ -12,14 +12,14 @@ def generateInstances(N = 20, m = 10, V = (100,100,100)):
         # u.r. is an abbreviation of "uniformly random". [Martello (1995)]
         value = random.uniform(lb, ub)
         return int(value) if value >= 1 else 1
-    
+
     L, W, H = V
     p = []; q = []; r = []
     for i in range(N):
         p.append(ur(1/6*L, 1/4*L))
         q.append(ur(1/6*W, 1/4*W))
         r.append(ur(1/6*H, 1/4*H))
-    
+
     L = [L]*m
     W = [W]*m
     H = [H]*m
@@ -36,16 +36,16 @@ class Bin():
         self.dimensions = V
         self.EMSs = [[np.array((0,0,0)), np.array(V)]]
         self.load_items = []
-        
+
         if verbose:
             print('Init EMSs:',self.EMSs)
-    
+
     def __getitem__(self, index):
         return self.EMSs[index]
-    
+
     def __len__(self):
         return len(self.EMSs)
-    
+
     def update(self, box, selected_EMS, min_vol = 1, min_dim = 1, verbose=False):
 
         # 1. place box in a EMS
@@ -53,20 +53,20 @@ class Bin():
         selected_min = np.array(selected_EMS[0])
         ems = [selected_min, selected_min + boxToPlace]
         self.load_items.append(ems)
-        
+
         if verbose:
             print('------------\n*Place Box*:\nEMS:', list(map(tuple, ems)))
-        
+
         # 2. Generate new EMSs resulting from the intersection of the box
         for EMS in self.EMSs.copy():
             if self.overlapped(ems, EMS):
-                
+
                 # eliminate overlapped EMS
                 self.eliminate(EMS)
-                
+
                 if verbose:
                     print('\n*Elimination*:\nRemove overlapped EMS:',list(map(tuple, EMS)),'\nEMSs left:', list(map( lambda x : list(map(tuple,x)), self.EMSs)))
-                
+
                 # six new EMSs in 3 dimensionsc
                 x1, y1, z1 = EMS[0]; x2, y2, z2 = EMS[1]
                 x3, y3, z3 = ems[0]; x4, y4, z4 = ems[1]
@@ -75,12 +75,12 @@ class Bin():
                     [np.array((x1, y4, z1)), np.array((x2, y2, z2))],
                     [np.array((x1, y1, z4)), np.array((x2, y2, z2))]
                 ]
-                
+
 
                 for new_EMS in new_EMSs:
                     new_box = new_EMS[1] - new_EMS[0]
                     isValid = True
-                    
+
                     if verbose:
                         print('\n*New*\nEMS:', list(map(tuple, new_EMS)))
 
@@ -90,15 +90,15 @@ class Bin():
                             isValid = False
                             if verbose:
                                 print('-> Totally inscribed by:', list(map(tuple, other_EMS)))
-                            
+
                     # 4. Do not add new EMS smaller than the volume of remaining boxes
                     if np.min(new_box) < min_dim:
                         isValid = False
                         if verbose:
                             print('-> Dimension too small.')
-                        
+
                     # 5. Do not add new EMS having smaller dimension of the smallest dimension of remaining boxes
-                    if np.product(new_box) < min_vol:
+                    if np.prod(new_box) < min_vol:
                         isValid = False
                         if verbose:
                             print('-> Volumne too small.')
@@ -111,31 +111,31 @@ class Bin():
         if verbose:
             print('\nEnd:')
             print('EMSs:', list(map( lambda x : list(map(tuple,x)), self.EMSs)))
-    
+
     def overlapped(self, ems, EMS):
         if np.all(ems[1] > EMS[0]) and np.all(ems[0] < EMS[1]):
             return True
         return False
-    
+
     def inscribed(self, ems, EMS):
         if np.all(EMS[0] <= ems[0]) and np.all(ems[1] <= EMS[1]):
             return True
         return False
-    
+
     def eliminate(self, ems):
         # numpy array can't compare directly
-        ems = list(map(tuple, ems))    
+        ems = list(map(tuple, ems))
         for index, EMS in enumerate(self.EMSs):
             if ems == list(map(tuple, EMS)):
                 self.EMSs.pop(index)
                 return
-    
+
     def get_EMSs(self):
         return  list(map( lambda x : list(map(tuple,x)), self.EMSs))
-    
+
     def load(self):
-        return np.sum([ np.product(item[1] - item[0]) for item in self.load_items]) / np.product(self.dimensions)
-    
+        return np.sum([ np.prod(item[1] - item[0]) for item in self.load_items]) / np.prod(self.dimensions)
+
 class PlacementProcedure():
     def __init__(self, inputs, solution, verbose=False):
         self.Bins = [Bin(V) for V in inputs['V']]
@@ -143,7 +143,7 @@ class PlacementProcedure():
         self.BPS = np.argsort(solution[:len(self.boxes)])
         self.VBO = solution[len(self.boxes):]
         self.num_opend_bins = 1
-        
+
         self.verbose = verbose
         if self.verbose:
             print('------------------------------------------------------------------')
@@ -152,11 +152,11 @@ class PlacementProcedure():
             print('|    -> Box Packing Sequence:', self.BPS)
             print('|    -> Vector of Box Orientations:', self.VBO)
             print('-------------------------------------------------------------------')
-        
+
         self.infisible = False
         self.placement()
-        
-    
+
+
     def placement(self):
         items_sorted = [self.boxes[i] for i in self.BPS]
 
@@ -164,7 +164,7 @@ class PlacementProcedure():
         for i, box in enumerate(items_sorted):
             if self.verbose:
                 print('Select Box:', box)
-                
+
             # Bin and EMS selection
             selected_bin = None
             selected_EMS = None
@@ -177,31 +177,31 @@ class PlacementProcedure():
                     selected_bin = k
                     selected_EMS = EMS
                     break
-            
+
             # Open new empty bin
             if selected_bin == None:
                 self.num_opend_bins += 1
                 selected_bin = self.num_opend_bins - 1
                 if self.num_opend_bins > len(self.Bins):
                     self.infisible = True
-                    
+
                     if self.verbose:
                         print('No more bin to open. [Infeasible]')
                     return
-                    
+
                 selected_EMS = self.Bins[selected_bin].EMSs[0] # origin of the new bin
                 if self.verbose:
                     print('No available bin... open bin', selected_bin)
-            
+
             if self.verbose:
                 print('Select EMS:', list(map(tuple, selected_EMS)))
-            
+
             # Box orientation selection
             BO = self.selecte_box_orientaion(self.VBO[i], box, selected_EMS)
 
             # elimination rule for different process
             min_vol, min_dim = self.elimination_rule(items_sorted[i+1:])
-   
+
             # pack the box to the bin & update state information
             self.Bins[selected_bin].update(self.orient(box, BO), selected_EMS, min_vol, min_dim)
 
@@ -214,7 +214,7 @@ class PlacementProcedure():
             print('|     Number of used bins:',self.num_opend_bins)
             print('|')
             print('------------------------------------------------------------')
-    
+
     # Distance to the Front-Top-Right Corner
     def DFTRC_2(self, box, k):
         maxDist = -1
@@ -241,32 +241,32 @@ class PlacementProcedure():
         elif BO == 4: return (w, h, d)
         elif BO == 5: return (h, d, w)
         elif BO == 6: return (h, w, d)
-        
+
     def selecte_box_orientaion(self, VBO, box, EMS):
         # feasible direction
         BOs = []
         for direction in [1,2,3,4,5,6]:
             if self.fitin(self.orient(box, direction), EMS):
                 BOs.append(direction)
-        
+
         # choose direction based on VBO vector
         selectedBO = BOs[math.ceil(VBO*len(BOs))-1]
-        
+
         if self.verbose:
             print('Select VBO:', selectedBO,'  (BOs',BOs, ', vector', VBO,')')
         return selectedBO
-         
+
     def fitin(self, box, EMS):
         # all dimension fit
         for d in range(3):
             if box[d] > EMS[1][d] - EMS[0][d]:
                 return False
         return True
-    
+
     def elimination_rule(self, remaining_boxes):
         if len(remaining_boxes) == 0:
             return 0, 0
-        
+
         min_vol = 999999999
         min_dim = 9999
         for box in remaining_boxes:
@@ -274,24 +274,24 @@ class PlacementProcedure():
             dim = np.min(box)
             if dim < min_dim:
                 min_dim = dim
-                
+
             # minimum volume
-            vol = np.product(box)
+            vol = np.prod(box)
             if vol < min_vol:
                 min_vol = vol
         return min_vol, min_dim
-    
+
     def evaluate(self):
         if self.infisible:
             return INFEASIBLE
-        
+
         leastLoad = 1
         for k in range(self.num_opend_bins):
             load = self.Bins[k].load()
             if load < leastLoad:
                 leastLoad = load
         return self.num_opend_bins + leastLoad%1
-    
+
 
 
 class BRKGA():
@@ -301,16 +301,16 @@ class BRKGA():
         # Input
         self.inputs =  copy.deepcopy(inputs)
         self.N = len(inputs['v'])
-        
+
         # Configuration
         self.num_generations = num_generations
         self.num_individuals = int(num_individuals)
         self.num_gene = 2*self.N
-        
+
         self.num_elites = int(num_elites)
         self.num_mutants = int(num_mutants)
         self.eliteCProb = eliteCProb
-        
+
         # Result
         self.used_bins = -1
         self.solution = None
@@ -319,11 +319,11 @@ class BRKGA():
             'mean': [],
             'min': []
         }
-        
+
     def decoder(self, solution):
         placement = PlacementProcedure(self.inputs, solution)
         return placement.evaluate()
-    
+
     def cal_fitness(self, population):
         fitness_list = list()
 
@@ -335,36 +335,36 @@ class BRKGA():
     def partition(self, population, fitness_list):
         sorted_indexs = np.argsort(fitness_list)
         return population[sorted_indexs[:self.num_elites]], population[sorted_indexs[self.num_elites:]], np.array(fitness_list)[sorted_indexs[:self.num_elites]]
-    
+
     def crossover(self, elite, non_elite):
         # chance to choose the gene from elite and non_elite for each gene
         return [elite[gene] if np.random.uniform(low=0.0, high=1.0) < self.eliteCProb else non_elite[gene] for gene in range(self.num_gene)]
-    
+
     def mating(self, elites, non_elites):
         # biased selection of mating parents: 1 elite & 1 non_elite
         num_offspring = self.num_individuals - self.num_elites - self.num_mutants
         return [self.crossover(random.choice(elites), random.choice(non_elites)) for i in range(num_offspring)]
-    
+
     def mutants(self):
         return np.random.uniform(low=0.0, high=1.0, size=(self.num_mutants, self.num_gene))
-        
+
     def fit(self, patient = 4, verbose = False):
         # Initial population & fitness
         population = np.random.uniform(low=0.0, high=1.0, size=(self.num_individuals, self.num_gene))
         fitness_list = self.cal_fitness(population)
-        
+
         if verbose:
             print('\nInitial Population:')
             print('  ->  shape:',population.shape)
             print('  ->  Best Fitness:',max(fitness_list))
-            
-        # best    
+
+        # best
         best_fitness = np.min(fitness_list)
         best_solution = population[np.argmin(fitness_list)]
         self.history['min'].append(np.min(fitness_list))
         self.history['mean'].append(np.mean(fitness_list))
-        
-        
+
+
         # Repeat generations
         best_iter = 0
         for g in range(self.num_generations):
@@ -377,20 +377,20 @@ class BRKGA():
                 if verbose:
                     print('Early stop at iter', g, '(timeout)')
                 return 'feasible'
-            
+
             # Select elite group
             elites, non_elites, elite_fitness_list = self.partition(population, fitness_list)
-            
+
             # Biased Mating & Crossover
             offsprings = self.mating(elites, non_elites)
-            
+
             # Generate mutants
             mutants = self.mutants()
 
             # New Population & fitness
             offspring = np.concatenate((mutants,offsprings), axis=0)
             offspring_fitness_list = self.cal_fitness(offspring)
-            
+
             population = np.concatenate((elites, mutants, offsprings), axis = 0)
             #fitness_list = elite_fitness_list + offspring_fitness_list
             fitness_list = self.cal_fitness(population)
@@ -401,13 +401,13 @@ class BRKGA():
                     best_iter = g
                     best_fitness = fitness
                     best_solution = population[np.argmin(fitness_list)]
-            
+
             self.history['min'].append(np.min(fitness_list))
             self.history['mean'].append(np.mean(fitness_list))
-            
+
             if verbose:
                 print("Generation :", g, ' \t(Best Fitness:', best_fitness,')')
-            
+
         self.used_bins = math.floor(best_fitness)
         self.best_fitness = best_fitness
         self.solution = best_solution
